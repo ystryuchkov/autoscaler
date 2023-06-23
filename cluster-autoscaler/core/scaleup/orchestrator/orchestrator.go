@@ -22,6 +22,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	apiv1 "k8s.io/api/core/v1"
+	"k8s.io/autoscaler/cluster-autoscaler/estimator"
 	"k8s.io/klog/v2"
 	schedulerframework "k8s.io/kubernetes/pkg/scheduler/framework"
 
@@ -462,9 +463,11 @@ func (o *ScaleUpOrchestrator) ComputeExpansionOption(
 		return option
 	}
 
-	estimator := o.autoscalingContext.EstimatorBuilder(o.autoscalingContext.PredicateChecker, o.autoscalingContext.ClusterSnapshot)
-	option.NodeCount, option.Pods = estimator.Estimate(pods, nodeInfo, nodeGroup, nil)
+	expansionEstimator := o.autoscalingContext.EstimatorBuilder(o.autoscalingContext.PredicateChecker, o.autoscalingContext.ClusterSnapshot)
 	option.SimilarNodeGroups = o.ComputeSimilarNodeGroups(nodeGroup, nodeInfos, schedulablePods, now)
+	runtimeLimits := []estimator.BinpackingLimit{estimator.NewGroupCapacityBinpackingLimit(option.SimilarNodeGroups)}
+	option.NodeCount, option.Pods = expansionEstimator.Estimate(pods, nodeInfo, nodeGroup, runtimeLimits)
+
 	return option
 }
 
